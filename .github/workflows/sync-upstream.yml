@@ -1,0 +1,39 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # 每天 00:00 UTC 检查上游更新
+  workflow_dispatch:      # 支持在 Actions 界面手动一键触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout trixie branch
+        uses: actions/checkout@v4
+        with:
+          ref: trixie
+          fetch-depth: 0
+
+      - name: Fetch and merge upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream https://github.com/ArchieMeng/droidian-recipes.git || true
+          git fetch upstream trixie
+
+          BEHIND=$(git rev-list --count HEAD..upstream/trixie)
+          echo "Upstream is ahead by ${BEHIND} commit(s)."
+
+          if [ "${BEHIND}" -gt 0 ]; then
+            echo "Merging upstream/trixie into trixie..."
+            git merge upstream/trixie -m "ci: sync upstream ArchieMeng/droidian-recipes"
+            git push origin trixie
+            echo "Synced successfully and pushed to origin/trixie."
+          else
+            echo "Already up-to-date with upstream."
+          fi
